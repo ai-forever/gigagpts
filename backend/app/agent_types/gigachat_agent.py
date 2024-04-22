@@ -11,6 +11,7 @@ from langgraph.graph.message import MessageGraph
 from langgraph.prebuilt import ToolExecutor, ToolInvocation
 
 from app.message_types import LiberalToolMessage
+import uuid
 
 
 def get_gigachat_agent_executor(
@@ -57,10 +58,16 @@ def get_gigachat_agent_executor(
         # we know the last message involves a function call
         last_message = messages[-1]
         print(f"!!! last_message {last_message}")
+        if "function_call" in last_message.additional_kwargs:
+            if not isinstance(last_message.additional_kwargs["function_call"], list):
+                last_message.additional_kwargs["function_call"] = [
+                    last_message.additional_kwargs["function_call"]
+                ]
+                                                
         for tool_call in last_message.additional_kwargs["function_call"]:
-            function = tool_call["function"]
-            function_name = function["name"]
-            _tool_input = json.loads(function["arguments"] or "{}")
+            tool_call["id"] = str(uuid.uuid4().hex)
+            function_name = tool_call["name"]
+            _tool_input = tool_call.get("arguments", {})
             # We construct an ToolInvocation from the function_call
             actions.append(
                 ToolInvocation(
@@ -75,7 +82,7 @@ def get_gigachat_agent_executor(
             LiberalToolMessage(
                 tool_call_id=tool_call["id"],
                 content=response,
-                additional_kwargs={"name": tool_call["function"]["name"]},
+                additional_kwargs={"name": tool_call["name"]},
             )
             for tool_call, response in zip(
                 last_message.additional_kwargs["function_call"], responses
