@@ -5,10 +5,16 @@ from urllib.parse import urlparse
 
 import boto3
 import httpx
-from langchain_community.chat_models import BedrockChat, ChatAnthropic, ChatFireworks
+from langchain_community.chat_models import (
+    BedrockChat,
+    ChatAnthropic,
+    ChatFireworks,
+    GigaChat,
+)
 from langchain_community.chat_models.ollama import ChatOllama
-from langchain_google_vertexai import ChatVertexAI
+# from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
+
 
 logger = logging.getLogger(__name__)
 
@@ -72,13 +78,6 @@ def get_anthropic_llm(bedrock: bool = False):
 
 
 @lru_cache(maxsize=1)
-def get_google_llm():
-    return ChatVertexAI(
-        model_name="gemini-pro", convert_system_message_to_human=True, streaming=True
-    )
-
-
-@lru_cache(maxsize=1)
 def get_mixtral_fireworks():
     return ChatFireworks(model="accounts/fireworks/models/mixtral-8x7b-instruct")
 
@@ -93,3 +92,16 @@ def get_ollama_llm():
         ollama_base_url = "http://localhost:11434"
 
     return ChatOllama(model=model_name, base_url=ollama_base_url)
+
+
+@lru_cache(maxsize=1)
+def get_gigachat_llm():
+    return GigaChat(
+        profanity_check=False,
+        verbose=True,
+        verify_ssl_certs=False,
+        base_url="https://wmapi-ift.saluteai-pd.sberdevices.ru/v1",
+        timeout=30,
+        model="GigaChat-Pro",
+        stream=False
+    )

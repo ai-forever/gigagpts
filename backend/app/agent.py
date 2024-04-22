@@ -9,16 +9,14 @@ from langchain_core.runnables import (
 from langgraph.checkpoint import CheckpointAt
 
 from app.agent_types.google_agent import get_google_agent_executor
+from app.agent_types.gigachat_agent import get_gigachat_agent_executor
 from app.agent_types.openai_agent import get_openai_agent_executor
 from app.agent_types.xml_agent import get_xml_agent_executor
 from app.chatbot import get_chatbot_executor
 from app.checkpoint import PostgresCheckpoint
 from app.llms import (
-    get_anthropic_llm,
-    get_google_llm,
-    get_mixtral_fireworks,
-    get_ollama_llm,
     get_openai_llm,
+    get_gigachat_llm
 )
 from app.retrieval import get_retrieval_executor
 from app.tools import (
@@ -63,8 +61,8 @@ class AgentType(str, Enum):
     AZURE_OPENAI = "GPT 4 (Azure OpenAI)"
     CLAUDE2 = "Claude 2"
     BEDROCK_CLAUDE2 = "Claude 2 (Amazon Bedrock)"
-    GEMINI = "GEMINI"
     OLLAMA = "Ollama"
+    GIGACHAT = "GigaChat"
 
 
 DEFAULT_SYSTEM_MESSAGE = "You are a helpful assistant."
@@ -103,14 +101,14 @@ def get_agent_executor(
         return get_xml_agent_executor(
             tools, llm, system_message, interrupt_before_action, CHECKPOINTER
         )
-    elif agent == AgentType.GEMINI:
-        llm = get_google_llm()
-        return get_google_agent_executor(
-            tools, llm, system_message, interrupt_before_action, CHECKPOINTER
-        )
     elif agent == AgentType.OLLAMA:
         llm = get_ollama_llm()
         return get_openai_agent_executor(
+            tools, llm, system_message, interrupt_before_action, CHECKPOINTER
+        )
+    elif agent == AgentType.GIGACHAT:
+        llm = get_gigachat_llm()
+        return get_gigachat_agent_executor(
             tools, llm, system_message, interrupt_before_action, CHECKPOINTER
         )
 
@@ -184,6 +182,7 @@ class LLMType(str, Enum):
     GEMINI = "GEMINI"
     MIXTRAL = "Mixtral"
     OLLAMA = "Ollama"
+    GIGACHAT = "GigaChat"
 
 
 def get_chatbot(
@@ -200,12 +199,12 @@ def get_chatbot(
         llm = get_anthropic_llm()
     elif llm_type == LLMType.BEDROCK_CLAUDE2:
         llm = get_anthropic_llm(bedrock=True)
-    elif llm_type == LLMType.GEMINI:
-        llm = get_google_llm()
     elif llm_type == LLMType.MIXTRAL:
         llm = get_mixtral_fireworks()
     elif llm_type == LLMType.OLLAMA:
         llm = get_ollama_llm()
+    elif llm_type == LLMType.GIGACHAT:
+        llm = get_gigachat_llm()
     else:
         raise ValueError("Unexpected llm type")
     return get_chatbot_executor(llm, system_message, CHECKPOINTER)
@@ -277,12 +276,12 @@ class ConfigurableRetrieval(RunnableBinding):
             llm = get_anthropic_llm()
         elif llm_type == LLMType.BEDROCK_CLAUDE2:
             llm = get_anthropic_llm(bedrock=True)
-        elif llm_type == LLMType.GEMINI:
-            llm = get_google_llm()
         elif llm_type == LLMType.MIXTRAL:
             llm = get_mixtral_fireworks()
         elif llm_type == LLMType.OLLAMA:
             llm = get_ollama_llm()
+        elif llm_type == LLMType.GIGACHAT:
+            llm = get_giga()
         else:
             raise ValueError("Unexpected llm type")
         chatbot = get_retrieval_executor(llm, retriever, system_message, CHECKPOINTER)
