@@ -109,14 +109,10 @@ pyenv activate opengpts
 Once your Python environment is set up, you can install the project dependencies:
 
 The backend service uses [poetry](https://python-poetry.org/docs/#installation) to manage dependencies.
-It assumes libmagic to be [installed](https://github.com/ahupp/python-magic?tab=readme-ov-file#installation) in your 
-host system.
 
 ```shell 
 pip install poetry
-pip install libmagic
 pip install langchain-community
-brew install libmagic
 ```
 
 **Install Postgres and the Postgres Vector Extension**
@@ -301,6 +297,8 @@ This can be a really powerful and flexible architecture. This is probably closes
 these also can be not super reliable, and generally only work with the more performant models (and even then they can 
 mess up). Therefore, we introduced a few simpler architecures.
 
+Assistants are implemented with [LangGraph](https://github.com/langchain-ai/langgraph) `MessageGraph`. A `MessageGraph` is a graph that models its state as a `list` of messages.
+
 **RAGBot**
 
 One of the big use cases of the GPT store is uploading files and giving the bot knowledge of those files. What would it 
@@ -321,6 +319,8 @@ pretty well with a wider variety of models (including lots of open source models
 you don’t NEED the flexibility of an assistant (eg you know users will be looking up information every time) then it 
 can be more focused. And third, compared to the final architecture below it can use external knowledge.
 
+RAGBot is implemented with [LangGraph](https://github.com/langchain-ai/langgraph) `StateGraph`. A `StateGraph` is a generalized graph that can model arbitrary state (i.e. `dict`), not just a `list` of messages.
+
 **ChatBot**
 
 The final architecture is dead simple - just a call to a language model, parameterized by a system message. This allows 
@@ -330,6 +330,8 @@ system messages at the end of the day, and CharacterAI is crushing it despite la
 well.
 
 ![](_static/chatbot.png)
+
+ChatBot is implemented with [LangGraph](https://github.com/langchain-ai/langgraph) `StateGraph`. A `StateGraph` is a generalized graph that can model arbitrary state (i.e. `dict`), not just a `list` of messages.
 
 ### LLMs
 
@@ -389,9 +391,9 @@ this.
 
 If you want to use some preconfigured tools, these include:
 
-**_Robocorp Action Server_**
+**_Sema4.ai Action Server_**
 
-Run AI Python based actions with [Robocorp Action Server](https://github.com/robocorp/robocorp).
+Run AI Python based actions with [Sema4.ai Action Server](https://github.com/Sema4AI/actions).
 Does not require a service API key, but it requires the credentials for a running Action Server instance to be defined.
 These you set while creating an assistant.
 

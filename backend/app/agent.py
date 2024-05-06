@@ -1,43 +1,24 @@
+import pickle
 from enum import Enum
-from typing import Any, Mapping, Optional, Sequence, Union
+from typing import Any, Dict, Mapping, Optional, Sequence, Union
 
-from langchain_core.messages import AnyMessage
-from langchain_core.runnables import (
-    ConfigurableField,
-    RunnableBinding,
-)
-from langgraph.checkpoint import CheckpointAt
-
-from app.agent_types.google_agent import get_google_agent_executor
 from app.agent_types.gigachat_agent import get_gigachat_agent_executor
-from app.agent_types.openai_agent import get_openai_agent_executor
+from app.agent_types.tools_agent import get_tools_agent_executor
 from app.agent_types.xml_agent import get_xml_agent_executor
 from app.chatbot import get_chatbot_executor
 from app.checkpoint import PostgresCheckpoint
-from app.llms import (
-    get_openai_llm,
-    get_gigachat_llm
-)
+from app.llms import get_gigachat_llm, get_openai_llm
 from app.retrieval import get_retrieval_executor
-from app.tools import (
-    RETRIEVAL_DESCRIPTION,
-    TOOLS,
-    ActionServer,
-    Arxiv,
-    AvailableTools,
-    Connery,
-    DDGSearch,
-    PressReleases,
-    PubMed,
-    Retrieval,
-    SecFilings,
-    Tavily,
-    TavilyAnswer,
-    Wikipedia,
-    YouSearch,
-    get_retrieval_tool,
-    get_retriever,
-)
+from app.tools import (RETRIEVAL_DESCRIPTION, TOOLS, ActionServer, Arxiv,
+                       AvailableTools, Connery, DallE, DDGSearch,
+                       PressReleases, PubMed, Retrieval, SecFilings, Tavily,
+                       TavilyAnswer, Wikipedia, YouSearch, get_retrieval_tool,
+                       get_retriever)
+from langchain_core.messages import AnyMessage
+from langchain_core.runnables import ConfigurableField, RunnableBinding
+from langgraph.checkpoint import CheckpointAt
+from langgraph.graph.message import Messages
+from langgraph.pregel import Pregel
 
 Tool = Union[
     ActionServer,
@@ -52,6 +33,7 @@ Tool = Union[
     Tavily,
     TavilyAnswer,
     Retrieval,
+    DallE,
 ]
 
 
@@ -61,13 +43,14 @@ class AgentType(str, Enum):
     AZURE_OPENAI = "GPT 4 (Azure OpenAI)"
     CLAUDE2 = "Claude 2"
     BEDROCK_CLAUDE2 = "Claude 2 (Amazon Bedrock)"
+    GEMINI = "GEMINI"
     OLLAMA = "Ollama"
     GIGACHAT = "GigaChat"
 
 
 DEFAULT_SYSTEM_MESSAGE = "You are a helpful assistant."
 
-CHECKPOINTER = PostgresCheckpoint(at=CheckpointAt.END_OF_STEP)
+CHECKPOINTER = PostgresCheckpoint(serde=pickle, at=CheckpointAt.END_OF_STEP)
 
 
 def get_agent_executor(
@@ -78,22 +61,22 @@ def get_agent_executor(
 ):
     if agent == AgentType.GPT_35_TURBO:
         llm = get_openai_llm()
-        return get_openai_agent_executor(
+        return get_tools_agent_executor(
             tools, llm, system_message, interrupt_before_action, CHECKPOINTER
         )
     elif agent == AgentType.GPT_4:
         llm = get_openai_llm(gpt_4=True)
-        return get_openai_agent_executor(
+        return get_tools_agent_executor(
             tools, llm, system_message, interrupt_before_action, CHECKPOINTER
         )
     elif agent == AgentType.AZURE_OPENAI:
         llm = get_openai_llm(azure=True)
-        return get_openai_agent_executor(
+        return get_tools_agent_executor(
             tools, llm, system_message, interrupt_before_action, CHECKPOINTER
         )
     elif agent == AgentType.CLAUDE2:
         llm = get_anthropic_llm()
-        return get_xml_agent_executor(
+        return get_tools_agent_executor(
             tools, llm, system_message, interrupt_before_action, CHECKPOINTER
         )
     elif agent == AgentType.BEDROCK_CLAUDE2:
@@ -101,9 +84,14 @@ def get_agent_executor(
         return get_xml_agent_executor(
             tools, llm, system_message, interrupt_before_action, CHECKPOINTER
         )
+    elif agent == AgentType.GEMINI:
+        llm = get_google_llm()
+        return get_tools_agent_executor(
+            tools, llm, system_message, interrupt_before_action, CHECKPOINTER
+        )
     elif agent == AgentType.OLLAMA:
         llm = get_ollama_llm()
-        return get_openai_agent_executor(
+        return get_tools_agent_executor(
             tools, llm, system_message, interrupt_before_action, CHECKPOINTER
         )
     elif agent == AgentType.GIGACHAT:
@@ -242,7 +230,10 @@ chatbot = (
         llm=ConfigurableField(id="llm_type", name="LLM Type"),
         system_message=ConfigurableField(id="system_message", name="Instructions"),
     )
-    .with_types(input_type=Sequence[AnyMessage], output_type=Sequence[AnyMessage])
+    .with_types(
+        input_type=Messages,
+        output_type=Sequence[AnyMessage],
+    )
 )
 
 
@@ -304,11 +295,14 @@ chat_retrieval = (
         ),
         thread_id=ConfigurableField(id="thread_id", name="Thread ID", is_shared=True),
     )
-    .with_types(input_type=Sequence[AnyMessage], output_type=Sequence[AnyMessage])
+    .with_types(
+        input_type=Dict[str, Any],
+        output_type=Dict[str, Any],
+    )
 )
 
 
-agent = (
+agent: Pregel = (
     ConfigurableAgent(
         agent=AgentType.GPT_35_TURBO,
         tools=[],
@@ -341,7 +335,10 @@ agent = (
         chatbot=chatbot,
         chat_retrieval=chat_retrieval,
     )
-    .with_types(input_type=Sequence[AnyMessage], output_type=Sequence[AnyMessage])
+    .with_types(
+        input_type=Messages,
+        output_type=Sequence[AnyMessage],
+    )
 )
 
 if __name__ == "__main__":

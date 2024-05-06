@@ -12,16 +12,18 @@ sse-starlette = "^1.6.5"
 tomli-w = "^1.0.0"
 uvicorn = "^0.23.2"
 fastapi = "^0.103.2"
-langserve = "0.0.32"
+gigaserve = ">=0.0.51"
 # Uncomment if you need to work from a development branch
 # This will only work for local development though!
 # langchain = { git = "git@github.com:langchain-ai/langchain.git/", branch = "nc/subclass-runnable-binding" , subdirectory = "libs/langchain"}
 orjson = "^3.9.10"
 python-multipart = "^0.0.6"
 tiktoken = "^0.5.1"
-gigachain = ">=0.1.14"
-gigachain_community = "^0.0.33.1"
-langgraph = "^0.0.31"
+gigachain = "^0.1.16"
+gigachain_community = "^0.0.36"
+gigachain_core = "^0.1.48"
+gigachain_openai = "^0.1.1"
+gigagraph = "^0.0.37"
 pydantic = "<2.0"
 python-magic = "^0.4.27"
 gigachain-openai = ">=0.1.1"
@@ -37,14 +39,13 @@ setuptools = "^69.0.3"
 pdfminer-six = "^20231228"
 gigachain-robocorp = "^0.0.5"
 fireworks-ai = "^0.11.2"
-anthropic = "^0.13.0"
 httpx = { version = "0.25.2", extras = ["socks"] }
 unstructured = {extras = ["doc", "docx"], version = "^0.12.5"}
 pgvector = "^0.2.5"
 psycopg2-binary = "^2.9.9"
 asyncpg = "^0.29.0"
-gigachain-core = ">=0.1.43.1"
 pyjwt = {extras = ["crypto"], version = "^2.8.0"}
+gigachain-anthropic = "^0.1.8"
 
 [tool.poetry.group.dev.dependencies]
 uvicorn = "^0.23.2"

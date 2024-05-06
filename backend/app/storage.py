@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, List, Optional, Sequence, Union
 
 from langchain_core.messages import AnyMessage
+from langchain_core.runnables import RunnableConfig
 
-from app.agent import AgentType, get_agent_executor
+from app.agent import agent
 from app.lifespan import get_pg_pool
 from app.schema import Assistant, Thread, User
 
@@ -18,23 +19,16 @@ async def get_assistant(user_id: str, assistant_id: str) -> Optional[Assistant]:
     """Get an assistant by ID."""
     async with get_pg_pool().acquire() as conn:
         return await conn.fetchrow(
-            "SELECT * FROM assistant WHERE assistant_id = $1 AND (user_id = $2 OR public = true)",
+            "SELECT * FROM assistant WHERE assistant_id = $1 AND (user_id = $2 OR public IS true)",
             assistant_id,
             user_id,
         )
 
 
-async def list_public_assistants(assistant_ids: Sequence[str]) -> List[Assistant]:
+async def list_public_assistants() -> List[Assistant]:
     """List all the public assistants."""
     async with get_pg_pool().acquire() as conn:
-        return await conn.fetch(
-            (
-                "SELECT * FROM assistant "
-                "WHERE assistant_id = ANY($1::uuid[]) "
-                "AND public = true;"
-            ),
-            assistant_ids,
-        )
+        return await conn.fetch(("SELECT * FROM assistant WHERE public IS true;"))
 
 
 async def put_assistant(
@@ -98,10 +92,18 @@ async def get_thread(user_id: str, thread_id: str) -> Optional[Thread]:
         )
 
 
-async def get_thread_state(user_id: str, thread_id: str):
+async def get_thread_state(*, user_id: str, thread_id: str, assistant_id: str):
     """Get state for a thread."""
-    app = get_agent_executor([], AgentType.GPT_35_TURBO, "", False)
-    state = await app.aget_state({"configurable": {"thread_id": thread_id}})
+    assistant = await get_assistant(user_id, assistant_id)
+    state = await agent.aget_state(
+        {
+            "configurable": {
+                **assistant["config"]["configurable"],
+                "thread_id": thread_id,
+                "assistant_id": assistant_id,
+            }
+        }
+    )
     return {
         "values": state.values,
         "next": state.next,
@@ -109,16 +111,29 @@ async def get_thread_state(user_id: str, thread_id: str):
 
 
 async def update_thread_state(
-    user_id: str, thread_id: str, values: Union[Sequence[AnyMessage], Dict[str, Any]]
+    config: RunnableConfig,
+    values: Union[Sequence[AnyMessage], dict[str, Any]],
+    *,
+    user_id: str,
+    assistant_id: str,
 ):
     """Add state to a thread."""
-    app = get_agent_executor([], AgentType.GPT_35_TURBO, "", False)
-    await app.aupdate_state({"configurable": {"thread_id": thread_id}}, values)
+    assistant = await get_assistant(user_id, assistant_id)
+    await agent.aupdate_state(
+        {
+            "configurable": {
+                **assistant["config"]["configurable"],
+                **config["configurable"],
+                "assistant_id": assistant_id,
+            }
+        },
+        values,
+    )
 
 
-async def get_thread_history(user_id: str, thread_id: str):
+async def get_thread_history(*, user_id: str, thread_id: str, assistant_id: str):
     """Get the history of a thread."""
-    app = get_agent_executor([], AgentType.GPT_35_TURBO, "", False)
+    assistant = await get_assistant(user_id, assistant_id)
     return [
         {
             "values": c.values,
@@ -126,8 +141,14 @@ async def get_thread_history(user_id: str, thread_id: str):
             "config": c.config,
             "parent": c.parent_config,
         }
-        async for c in app.aget_state_history(
-            {"configurable": {"thread_id": thread_id}}
+        async for c in agent.aget_state_history(
+            {
+                "configurable": {
+                    **assistant["config"]["configurable"],
+                    "thread_id": thread_id,
+                    "assistant_id": assistant_id,
+                }
+            }
         )
     ]
 
